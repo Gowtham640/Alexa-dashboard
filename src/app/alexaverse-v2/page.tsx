@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Event } from "../types/types";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabase-client";
+import { supabase } from "../../lib/supabase-client";
 
 const events: Event[] = [
   {

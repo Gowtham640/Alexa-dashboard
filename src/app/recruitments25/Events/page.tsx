@@ -7,7 +7,7 @@ import { useState } from "react";
 import IndividualRegistrationTableWithRound from "../../components/IndividualRegistrationTableWithRound";
 import { IndividualRegistrationWithRound, Recruitment25Data } from "../../types/types";
 import Papa, { ParseResult } from "papaparse";
-import { supabase } from "../../lib/supabase-client";
+import { supabase } from "../../../lib/supabase-client";
 import { useEffect } from "react";
 
 type BulkCSVRow = {
