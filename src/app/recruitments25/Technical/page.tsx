@@ -18,6 +18,10 @@ interface DebugInfo {
   tokenLength: number;
 }
 
+interface CSVRow {
+  registerNumber?: string;
+}
+
 export default function TechnicalPage() {
   const router = useRouter();
   const { userRole, loading: roleLoading } = useUserRole();
@@ -168,11 +172,11 @@ export default function TechnicalPage() {
     Papa.parse(bulkFile, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results: ParseResult<any>) => {
+      complete: async (results: ParseResult<CSVRow>) => {
         try {
           const registrationNumbers = results.data
-            .map((row: any) => row.registerNumber)
-            .filter((num: any) => num && num.trim() !== "");
+            .map((row: CSVRow) => row.registerNumber)
+            .filter((num: string | undefined) => num && num.trim() !== "");
 
           if (registrationNumbers.length === 0) {
             setToastMessage("No valid registration numbers found in CSV");
