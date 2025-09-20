@@ -47,12 +47,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid round number (1-3) is required' }, { status: 400 });
     }
 
-    // Update the database for business domain participants
+    // Update the database for participants with matching registration numbers (no domain restriction)
     const { data, error } = await userSupabase
       .from('recruitment_25')
       .update({ round: round })
-      .in('registration_number', registrationNumbers)
-      .or('domain1.ilike.%business%,domain2.ilike.%business%');
+      .in('registration_number', registrationNumbers);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -62,8 +61,7 @@ export async function POST(req: NextRequest) {
     const { data: updatedData, error: fetchError } = await userSupabase
       .from('recruitment_25')
       .select('*')
-      .in('registration_number', registrationNumbers)
-      .or('domain1.ilike.%business%,domain2.ilike.%business%');
+      .in('registration_number', registrationNumbers);
 
     if (fetchError) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 });

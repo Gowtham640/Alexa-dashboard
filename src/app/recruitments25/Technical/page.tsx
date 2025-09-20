@@ -11,13 +11,6 @@ import { useEffect } from "react";
 import { supabase } from "../../../lib/supabase-client";
 import { useUserRole } from "../../../lib/useUserRole";
 
-interface DebugInfo {
-  hasSession: boolean;
-  userId?: string;
-  userEmail?: string;
-  tokenLength: number;
-}
-
 interface CSVRow {
   registerNumber?: string;
 }
@@ -36,64 +29,34 @@ export default function TechnicalPage() {
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkRound, setBulkRound] = useState("2");
   const [toastMessage, setToastMessage] = useState("");
-  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
 
   useEffect(() => {
     const fetchTechnicalRegistrations = async () => {
       try {
-        console.log("📊 Technical: Starting data fetch...");
         const { data: { session } } = await supabase.auth.getSession();
         
-        const sessionInfo = {
-          hasSession: !!session,
-          userId: session?.user?.id,
-          userEmail: session?.user?.email,
-          tokenLength: session?.access_token?.length || 0
-        };
-        
-        console.log("📊 Technical: Session check:", sessionInfo);
-        setDebugInfo(sessionInfo);
-        
         if (!session) {
-          console.log("📊 Technical: No session, redirecting to login");
           router.push("/login");
           return;
         }
 
-        console.log("📊 Technical: Making API call to /api/technical-registrations");
         const res = await fetch("/api/technical-registrations", {
           headers: {
             'Authorization': `Bearer ${session.access_token}`
           }
         });
-        
-        console.log("📊 Technical: API response status:", res.status);
         const data = await res.json();
-        console.log("📊 Technical: API response data:", data);
 
         if (!res.ok) {
-          console.error("📊 Technical: Backend error:", data.error);
+          console.error("Backend error:", data.error);
           setToastMessage("Error fetching data from backend");
           setTimeout(() => setToastMessage(""), 3000);
           return;
         }
 
-        console.log("📊 Technical: Setting registrations:", data.length, "records");
         setRegistrations(data);
-        
-        // Test direct Supabase access
-        console.log("📊 Technical: Testing direct Supabase access...");
-        const { count: directCount, error: directError } = await supabase
-          .from('recruitment_25')
-          .select('*', { count: 'exact', head: true })
-          .or('domain1.ilike.%technical%,domain2.ilike.%technical%');
-        
-        console.log("📊 Technical: Direct Supabase test:", {
-          directCount,
-          directError: directError?.message
-        });
       } catch (err) {
-        console.error("📊 Technical: Error:", err);
+        console.error("Error:", err);
         setToastMessage("Error fetching data from backend");
         setTimeout(() => setToastMessage(""), 3000);
       }
@@ -132,7 +95,7 @@ export default function TechnicalPage() {
     return matchesSearch && matchesYear && matchesRound;
   });
 
-  // --- CSV Export Function ---
+  // CSV Export
   const handleExport = () => {
     if (filteredRegistrations.length === 0) {
       setToastMessage("No participants to export");
@@ -140,72 +103,70 @@ export default function TechnicalPage() {
       return;
     }
 
-    const csvData = filteredRegistrations.map((participant) => ({
-      Name: participant.name,
-      "Registration Number": participant.registerNumber,
-      Email: participant.email,
-      Phone: participant.phone,
-      "Registered At": participant.registeredAt,
-      Round: participant.round,
-    }));
+    const csvHeader = ["Name", "Register Number", "Email", "Phone", "Round"];
+    const csvRows = filteredRegistrations.map((p) =>
+      [p.name, p.registerNumber, p.email, p.phone, p.round].join(",")
+    );
 
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
+    const csvContent = [csvHeader.join(","), ...csvRows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "technical_registrations.csv");
-    link.style.visibility = "hidden";
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "participants.csv";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    setToastMessage(`${filteredRegistrations.length} participants exported successfully`);
+    setTimeout(() => setToastMessage(""), 3000);
   };
 
-  // --- Bulk Update Function ---
   const handleBulkUpdate = () => {
-    if (!bulkFile) {
-      setToastMessage("Please select a CSV file");
-      setTimeout(() => setToastMessage(""), 3000);
-      return;
-    }
+    if (!bulkFile) return;
 
     Papa.parse(bulkFile, {
       header: true,
       skipEmptyLines: true,
       complete: async (results: ParseResult<CSVRow>) => {
+        const dataRows = results.data as CSVRow[];
+        const regNumbers: string[] = dataRows.map((row) => row.registerNumber?.trim() || "");
+
         try {
-          const registrationNumbers = results.data
-            .map((row: CSVRow) => row.registerNumber)
-            .filter((num: string | undefined) => num && num.trim() !== "");
-
-          if (registrationNumbers.length === 0) {
-            setToastMessage("No valid registration numbers found in CSV");
-            setTimeout(() => setToastMessage(""), 3000);
-            return;
-          }
-
-          const response = await fetch("/api/technical-bulk-update", {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          // Call the server function to update the database
+          const res = await fetch("/api/technical-bulk-update", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              Authorization: `Bearer ${session?.access_token}`,
             },
             body: JSON.stringify({
-              registrationNumbers,
-              round: parseInt(bulkRound),
-            }),
+              registrationNumbers: regNumbers,
+              round: Number(bulkRound)
+            })
           });
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            setToastMessage(`Error: ${errorData.error}`);
+          const data = await res.json();
+
+          if (!res.ok) {
+            console.error("Backend error:", data.error);
+            setToastMessage("Error updating database: " + data.error);
             setTimeout(() => setToastMessage(""), 3000);
             return;
           }
 
-          const updatedData = await response.json();
-          setRegistrations(updatedData);
-          setToastMessage(`Successfully updated ${updatedData.length} participants to round ${bulkRound}`);
+          // Update local state to reflect the changes
+          const updatedRegistrations = registrations.map((p) => {
+            if (regNumbers.includes(p.registerNumber)) {
+              return { ...p, round: Number(bulkRound) };
+            }
+            return p;
+          });
+
+          setRegistrations(updatedRegistrations);
+          setToastMessage(data.message || `Successfully updated ${data.length} participants to round ${bulkRound}`);
 
           setShowBulkModal(false);
           setBulkFile(null);
@@ -234,13 +195,10 @@ export default function TechnicalPage() {
         {/* Logo + Back */}
         <div className="absolute top-4 left-4 p-2 z-12 flex flex-col items-start gap-2">
           <Link href="/">
-            <Image 
-              src="/alexa-logo.svg" 
-              alt="Alexa Club Logo" 
-              width={48}
-              height={48}
-              className="h-12 w-auto sm:h-10 xs:h-8 mobile:h-6 hover:opacity-80 transition-opacity cursor-pointer"
-            />
+            <img src="/alexa-logo.svg" 
+            alt="Alexa Club Logo" 
+            className="h-12 w-auto sm:h-10 xs:h-8 mobile:h-6 hover:opacity-80 transition-opacity cursor-pointer"
+             />
           </Link>
           <Link
             href="/recruitments25"
@@ -276,7 +234,6 @@ export default function TechnicalPage() {
                     {filteredRegistrations.length} Registrations
                   </span>
                 </div>
-                
               </div>
 
               {/* Bulk & Export Buttons - Only for lead&core */}
@@ -316,6 +273,16 @@ export default function TechnicalPage() {
                       <option value="3">3rd Year</option>
                       <option value="4">4th Year</option>
                     </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <svg
+                        className="h-5 w-5 text-purple-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
 
                   {/* Round Filter */}
@@ -330,171 +297,188 @@ export default function TechnicalPage() {
                       <option value="2">Round 2</option>
                       <option value="3">Round 3</option>
                     </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <svg
+                        className="h-5 w-5 text-purple-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Mobile Filters */}
-              <div className="md:hidden mb-4 space-y-3">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowMobileSearch(!showMobileSearch)}
-                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm"
-                  >
-                    {showMobileSearch ? "Hide Search" : "Search"}
-                  </button>
-                  <button
-                    onClick={() => setShowMobileFilter(!showMobileFilter)}
-                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm"
-                  >
-                    {showMobileFilter ? "Hide Filters" : "Filters"}
-                  </button>
-                </div>
-
-                {/* Mobile Search */}
-                {showMobileSearch && (
-                  <div className="space-y-2">
+                  {/* Search Input */}
+                  <div className="relative">
                     <input
                       type="text"
                       placeholder="Search participants..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full p-3 bg-gray-800/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 pl-10 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-text text-sm sm:text-base"
                     />
+                    <svg
+                      className="absolute left-3 top-2.5 h-5 w-5 text-purple-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                   </div>
-                )}
+                </div>
 
-                {/* Mobile Filters */}
-                {showMobileFilter && (
-                  <div className="space-y-2">
-                    <select
-                      value={yearFilter || ""}
-                      onChange={(e) => setYearFilter(e.target.value || null)}
-                      className="w-full p-3 bg-gray-800/50 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                {/* Mobile Icons */}
+                <div className="flex md:hidden gap-2">
+                  <button
+                    onClick={() => setShowMobileSearch(!showMobileSearch)}
+                    className="p-2 bg-gray-800/50 rounded-lg text-white hover:bg-gray-700"
+                    aria-label="Search"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <option value="">All Years</option>
-                      <option value="1">1st Year</option>
-                      <option value="2">2nd Year</option>
-                      <option value="3">3rd Year</option>
-                      <option value="4">4th Year</option>
-                    </select>
-                    <select
-                      value={roundFilter || ""}
-                      onChange={(e) => setRoundFilter(e.target.value || null)}
-                      className="w-full p-3 bg-gray-800/50 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setShowMobileFilter(!showMobileFilter)}
+                    className="p-2 bg-gray-800/50 rounded-lg text-white hover:bg-gray-700"
+                    aria-label="Filter"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <option value="">All Rounds</option>
-                      <option value="1">Round 1</option>
-                      <option value="2">Round 2</option>
-                      <option value="3">Round 3</option>
-                    </select>
-                  </div>
-                )}
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-2 1v-6L3 6V4z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
-              {/* Desktop Search */}
-              <div className="hidden md:block mb-6">
-                <input
-                  type="text"
-                  placeholder="Search participants..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full p-3 bg-gray-800/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              {/* Toast Message */}
-              {toastMessage && (
-                <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-300 text-sm">
-                  {toastMessage}
+              {/* Mobile Inputs */}
+              {showMobileSearch && (
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search participants..."
+                    className="w-full bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
               )}
 
-              {/* Debug Info Panel */}
-              {debugInfo && (
-                <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-300 text-sm">
-                  <div><strong>Session:</strong> {debugInfo.hasSession ? 'Active' : 'None'}</div>
-                  {debugInfo.userId && <div><strong>User ID:</strong> {debugInfo.userId}</div>}
-                  {debugInfo.userEmail && <div><strong>Email:</strong> {debugInfo.userEmail}</div>}
-                  <div><strong>Token Length:</strong> {debugInfo.tokenLength}</div>
+              {showMobileFilter && (
+                <div className="mb-4 flex flex-col gap-4">
+                  <select
+                    value={yearFilter || ""}
+                    onChange={(e) => setYearFilter(e.target.value || null)}
+                    className="w-full bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
+                  >
+                    <option value="">All Years</option>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                  </select>
+                  <select
+                    value={roundFilter || ""}
+                    onChange={(e) => setRoundFilter(e.target.value || null)}
+                    className="w-full bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
+                  >
+                    <option value="">All Rounds</option>
+                    <option value="1">Round 1</option>
+                    <option value="2">Round 2</option>
+                    <option value="3">Round 3</option>
+                  </select>
                 </div>
               )}
 
               {/* Table */}
-              <IndividualRegistrationTableWithRound registrations={filteredRegistrations} />
+              <div className="border border-white/20 rounded-lg overflow-hidden bg-gray-900/50 backdrop-blur-sm">
+                <IndividualRegistrationTableWithRound registrations={filteredRegistrations} />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bulk Update Modal */}
+      {/* Bulk Modal */}
       {showBulkModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-gray-900 text-white rounded-lg shadow-lg p-6 w-full max-w-md sm:w-96 relative">
             <h2 className="text-xl font-bold mb-4">Bulk Update Participants</h2>
 
-            {/* Styled File Input */}
             <label
               htmlFor="bulk-file"
-              className="block w-full p-4 border-2 border-dashed border-purple-500/50 rounded-lg cursor-pointer hover:border-purple-500/70 transition-colors mb-4"
+              className="mb-4 w-full inline-block bg-pink-700 hover:bg-pink-800 text-white text-center py-2 rounded-lg cursor-pointer text-sm sm:text-base"
             >
-              <div className="text-center">
-                <div className="text-purple-400 mb-2">
-                  <svg className="mx-auto h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                </div>
-                <span className="text-sm">
-                  {bulkFile ? bulkFile.name : "Click to upload CSV file"}
-                </span>
-              </div>
-              <input
-                id="bulk-file"
-                type="file"
-                accept=".csv"
-                onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-                className="hidden"
-              />
+              {bulkFile ? bulkFile.name : "Choose CSV File"}
             </label>
+            <input
+              id="bulk-file"
+              type="file"
+              accept=".csv"
+              onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+              className="hidden"
+            />
 
-            {/* Round Selection */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Select Round:</label>
-              <select
-                value={bulkRound}
-                onChange={(e) => setBulkRound(e.target.value)}
-                className="w-full p-3 bg-gray-800 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="2">Round 2</option>
-                <option value="3">Round 3</option>
-              </select>
-            </div>
+            <p className="mb-2 font-medium">Move participants to:</p>
+            <select
+              value={bulkRound}
+              onChange={(e) => setBulkRound(e.target.value)}
+              className="mb-4 w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-800 text-white cursor-pointer text-sm sm:text-base"
+            >
+              <option value="1">Round 1</option>
+              <option value="2">Round 2</option>
+              <option value="3">Round 3</option>
+            </select>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={handleBulkUpdate}
-                disabled={!bulkFile}
-                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
-              >
-                Update Participants
-              </button>
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowBulkModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
               >
                 Cancel
+              </button>
+              <button
+                onClick={handleBulkUpdate}
+                className="px-4 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+              >
+                Move Participants
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Mobile specific scaling for logo */}
+      {/* Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 left-4 md:right-4 md:left-auto bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm sm:text-base break-words">
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Mobile Responsive Styles */}
       <style jsx>{`
         @media (max-width: 480px) {
-          .absolute.top-4.left-4 img {
-            height: 32px; /* smaller logo on mobile */
+          div.absolute.top-4.left-4 img {
+            height: 32px;
+          }
+          div.absolute.top-4.right-4 button {
+            padding: 0.5rem;
+            font-size: 0.8rem;
+          }
+          div.bg-gradient-to-r div.flex.gap-2 button {
+            padding: 0.5rem;
+            font-size: 0.8rem;
           }
         }
       `}</style>
