@@ -29,9 +29,9 @@ export default function BusinessPage() {
   const [toastMessage, setToastMessage] = useState("");
 
 useEffect(() => {
-  const fetchTechnicalRegistrations = async () => {
+  const fetchBusinessRegistrations = async () => {
     try {
-      const res = await fetch("/api/creatives-registrations");
+      const res = await fetch("/api/business-registrations");
       const data = await res.json();
 
       if (!res.ok) {
@@ -49,7 +49,7 @@ useEffect(() => {
     }
   };
 
-  fetchTechnicalRegistrations();
+  fetchBusinessRegistrations();
 }, []);
 
   const handleLogout = () => {
@@ -109,43 +109,59 @@ useEffect(() => {
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-  // --- Bulk Update ---
   const handleBulkUpdate = () => {
     if (!bulkFile) return;
 
     Papa.parse<BulkCSVRow>(bulkFile, {
       header: true,
       skipEmptyLines: true,
-      complete: (results: ParseResult<Record<string, string>>) => {
+      complete: async (results: ParseResult<Record<string, string>>) => {
         const regNumbers: string[] = results.data.map((row) =>
           row.registerNumber?.trim() || ""
         );
 
-        const notFound: string[] = [];
-        const updatedRegistrations = registrations.map((p) => {
-          if (regNumbers.includes(p.registerNumber)) {
-            return { ...p, round: Number(bulkRound) };
+        try {
+          // Call the server function to update the database
+          const res = await fetch("/api/business-bulk-update", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              registrationNumbers: regNumbers,
+              round: Number(bulkRound)
+            })
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            console.error("Backend error:", data.error);
+            setToastMessage("Error updating database: " + data.error);
+            setTimeout(() => setToastMessage(""), 3000);
+            return;
           }
-          return p;
-        });
 
-        // Check which registration numbers were not found
-        regNumbers.forEach((rn) => {
-          if (!registrations.some((p) => p.registerNumber === rn)) {
-            notFound.push(rn);
-          }
-        });
+          // Update local state to reflect the changes
+          const updatedRegistrations = registrations.map((p) => {
+            if (regNumbers.includes(p.registerNumber)) {
+              return { ...p, round: Number(bulkRound) };
+            }
+            return p;
+          });
 
-        setRegistrations(updatedRegistrations);
+          setRegistrations(updatedRegistrations);
+          setToastMessage(data.message);
 
-        setToastMessage(
-          `${regNumbers.length - notFound.length} participants moved to Round ${bulkRound}` +
-            (notFound.length ? `. Not found: ${notFound.join(", ")}` : "")
-        );
+          setShowBulkModal(false);
+          setBulkFile(null);
+          setTimeout(() => setToastMessage(""), 5000);
 
-        setShowBulkModal(false);
-        setBulkFile(null);
-        setTimeout(() => setToastMessage(""), 5000);
+        } catch (err) {
+          console.error("Error:", err);
+          setToastMessage("Error updating database");
+          setTimeout(() => setToastMessage(""), 3000);
+        }
       },
       error: (err) => {
         console.error("CSV Parsing Error:", err);
