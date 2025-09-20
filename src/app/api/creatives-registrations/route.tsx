@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseServer } from '../../../lib/supabase-server';
 
 interface Recruitment25Data {
   id: number;
@@ -26,9 +25,6 @@ interface IndividualRegistrationWithRound {
 
 export async function GET(req: NextRequest) {
   try {
-    // Use server-side Supabase client with service role key
-    const supabase = supabaseServer;
-
     // Get the authorization header
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
@@ -63,11 +59,8 @@ export async function GET(req: NextRequest) {
       .or('domain1.ilike.%creatives%,domain2.ilike.%creatives%');
 
     if (error) {
-      console.error('Supabase error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
-    console.log(`Found ${data?.length || 0} creatives registrations`);
 
     if (!data || data.length === 0) {
       return NextResponse.json([]);
@@ -86,7 +79,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(transformedData);
     
   } catch (err) {
-    console.error('Server error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

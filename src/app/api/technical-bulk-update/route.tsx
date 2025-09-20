@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseServer } from '../../../lib/supabase-server';
 
 interface BulkUpdateRequest {
   registrationNumbers: string[];
@@ -9,9 +8,6 @@ interface BulkUpdateRequest {
 
 export async function POST(req: NextRequest) {
   try {
-    // Use server-side Supabase client with service role key
-    const supabase = supabaseServer;
-
     // Get the authorization header
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
@@ -59,7 +55,6 @@ export async function POST(req: NextRequest) {
       .or('domain1.ilike.%technical%,domain2.ilike.%technical%');
 
     if (error) {
-      console.error('Supabase error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -71,24 +66,12 @@ export async function POST(req: NextRequest) {
       .or('domain1.ilike.%technical%,domain2.ilike.%technical%');
 
     if (fetchError) {
-      console.error('Error fetching updated data:', fetchError);
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    // Find which registration numbers were not found in the database
-    const foundRegNumbers = updatedData?.map(item => item.registration_number) || [];
-    const notFound = registrationNumbers.filter(regNum => !foundRegNumbers.includes(regNum));
-
-    return NextResponse.json({
-      success: true,
-      updatedCount: foundRegNumbers.length,
-      notFound: notFound,
-      message: `${foundRegNumbers.length} participants moved to Round ${round}` + 
-               (notFound.length ? `. Not found: ${notFound.join(", ")}` : "")
-    });
-
+    return NextResponse.json(updatedData || []);
+    
   } catch (err) {
-    console.error('Server error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
