@@ -210,11 +210,7 @@ export default function BusinessPage() {
 
         {/* User Role & Logout */}
         <div className="absolute top-4 right-4 z-12 flex items-center gap-3">
-          {!roleLoading && userRole && (
-            <div className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-sm border border-blue-500/30">
-              Role: {userRole}
-            </div>
-          )}
+          
           <button
             onClick={handleLogout}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition-colors cursor-pointer text-sm sm:text-base"
