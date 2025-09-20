@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useUserRole } from "../../lib/useUserRole";
 
 const recruitments = [
@@ -42,9 +43,11 @@ export default function Recruitments2025() {
       {/* Alexa Logo + Back Link */}
       <div className="absolute top-4 left-4 p-2 z-12 flex flex-col items-start gap-2">
         <Link href="/">
-          <img
+          <Image
             src="/alexa-logo.svg"
             alt="Alexa Club Logo"
+            width={48}
+            height={48}
             className="h-12 w-auto sm:h-10 xs:h-8 mobile:h-6 hover:opacity-80 transition-opacity cursor-pointer"
           />
         </Link>
