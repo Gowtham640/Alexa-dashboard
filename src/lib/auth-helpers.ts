@@ -1,5 +1,5 @@
 import { supabase } from './supabase-client';
-import { AppRouterInstance } from 'next/dist/shared/lib/router-context.shared-runtime';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 
 export const getAuthHeaders = async () => {
   const { data: { session } } = await supabase.auth.getSession();
