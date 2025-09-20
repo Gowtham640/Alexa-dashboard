@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '../../../lib/supabase-client';
+import { createClient } from '@supabase/supabase-js';
 
 interface BulkUpdateRequest {
   registrationNumbers: string[];
@@ -8,6 +8,34 @@ interface BulkUpdateRequest {
 
 export async function POST(req: NextRequest) {
   try {
+    // Get the authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
+    }
+
+    // Set the session for the request
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create a client with the user's token for RLS context
+    const userSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
+    
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
     const body: BulkUpdateRequest = await req.json();
     const { registrationNumbers, round } = body;
 
@@ -19,44 +47,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid round number (1-3) is required' }, { status: 400 });
     }
 
-    // Update the database for business domain participants
-    const { data, error } = await supabase
+    // Update the database for participants with matching registration numbers (no domain restriction)
+    const { data, error } = await userSupabase
       .from('recruitment_25')
       .update({ round: round })
-      .in('registration_number', registrationNumbers)
-      .or('domain1.ilike.%business%,domain2.ilike.%business%');
+      .in('registration_number', registrationNumbers);
 
     if (error) {
-      console.error('Supabase error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     // Get the updated records to return
-    const { data: updatedData, error: fetchError } = await supabase
+    const { data: updatedData, error: fetchError } = await userSupabase
       .from('recruitment_25')
       .select('*')
-      .in('registration_number', registrationNumbers)
-      .or('domain1.ilike.%business%,domain2.ilike.%business%');
+      .in('registration_number', registrationNumbers);
 
     if (fetchError) {
-      console.error('Error fetching updated data:', fetchError);
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    // Find which registration numbers were not found in the database
-    const foundRegNumbers = updatedData?.map(item => item.registration_number) || [];
-    const notFound = registrationNumbers.filter(regNum => !foundRegNumbers.includes(regNum));
-
-    return NextResponse.json({
-      success: true,
-      updatedCount: foundRegNumbers.length,
-      notFound: notFound,
-      message: `${foundRegNumbers.length} participants moved to Round ${round}` + 
-               (notFound.length ? `. Not found: ${notFound.join(", ")}` : "")
-    });
-
+    return NextResponse.json(updatedData || []);
+    
   } catch (err) {
-    console.error('Server error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

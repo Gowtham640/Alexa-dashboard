@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { useUserRole } from "../../lib/useUserRole";
 
 const recruitments = [
   {
@@ -26,6 +28,8 @@ const recruitments = [
 ];
 
 export default function Recruitments2025() {
+  const { userRole, loading: roleLoading } = useUserRole();
+  
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
     window.location.href = "/login";
@@ -39,9 +43,11 @@ export default function Recruitments2025() {
       {/* Alexa Logo + Back Link */}
       <div className="absolute top-4 left-4 p-2 z-12 flex flex-col items-start gap-2">
         <Link href="/">
-          <img
+          <Image
             src="/alexa-logo.svg"
             alt="Alexa Club Logo"
+            width={48}
+            height={48}
             className="h-12 w-auto sm:h-10 xs:h-8 mobile:h-6 hover:opacity-80 transition-opacity cursor-pointer"
           />
         </Link>
@@ -53,8 +59,9 @@ export default function Recruitments2025() {
         </Link>
       </div>
 
-      {/* Logout button */}
-      <div className="absolute top-4 right-4 z-12">
+      {/* User Role & Logout */}
+      <div className="absolute top-4 right-4 z-12 flex items-center gap-3">
+        
         <button
           onClick={handleLogout}
           className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"

@@ -5,17 +5,19 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import IndividualRegistrationTableWithRound from "../../components/IndividualRegistrationTableWithRound";
-import { IndividualRegistrationWithRound, Recruitment25Data } from "../../types/types"; 
+import { IndividualRegistrationWithRound, Recruitment25Data } from "../../types/types";
 import Papa, { ParseResult } from "papaparse";
-import { supabase } from "../../../lib/supabase-client";
 import { useEffect } from "react";
+import { supabase } from "../../../lib/supabase-client";
+import { useUserRole } from "../../../lib/useUserRole";
 
-type BulkCSVRow = {
+interface CSVRow {
   registerNumber?: string;
-};
+}
 
 export default function CreativesPage() {
   const router = useRouter();
+  const { userRole, loading: roleLoading } = useUserRole();
 
   const [registrations, setRegistrations] = useState<IndividualRegistrationWithRound[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -28,32 +30,43 @@ export default function CreativesPage() {
   const [bulkRound, setBulkRound] = useState("2");
   const [toastMessage, setToastMessage] = useState("");
 
-useEffect(() => {
-  const fetchTechnicalRegistrations = async () => {
-    try {
-      const res = await fetch("/api/creatives-registrations");
-      const data = await res.json();
+  useEffect(() => {
+    const fetchCreativesRegistrations = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          router.push("/login");
+          return;
+        }
 
-      if (!res.ok) {
-        console.error("Backend error:", data.error);
+        const res = await fetch("/api/creatives-registrations", {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Backend error:", data.error);
+          setToastMessage("Error fetching data from backend");
+          setTimeout(() => setToastMessage(""), 3000);
+          return;
+        }
+
+        setRegistrations(data);
+      } catch (err) {
+        console.error("Error:", err);
         setToastMessage("Error fetching data from backend");
         setTimeout(() => setToastMessage(""), 3000);
-        return;
       }
+    };
 
-      setRegistrations(data);
-    } catch (err) {
-      console.error("Error:", err);
-      setToastMessage("Error fetching data from backend");
-      setTimeout(() => setToastMessage(""), 3000);
-    }
-  };
+    fetchCreativesRegistrations();
+  }, [router]);
 
-  fetchTechnicalRegistrations();
-}, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push("/login");
   };
 
@@ -82,7 +95,7 @@ useEffect(() => {
     return matchesSearch && matchesYear && matchesRound;
   });
 
-  // --- CSV Export Function ---
+  // CSV Export
   const handleExport = () => {
     if (filteredRegistrations.length === 0) {
       setToastMessage("No participants to export");
@@ -112,20 +125,22 @@ useEffect(() => {
   const handleBulkUpdate = () => {
     if (!bulkFile) return;
 
-    Papa.parse<BulkCSVRow>(bulkFile, {
+    Papa.parse(bulkFile, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results: ParseResult<Record<string, string>>) => {
-        const regNumbers: string[] = results.data
-          .map((row) => row.registerNumber?.trim())
-          .filter((rn): rn is string => rn !== undefined);
+      complete: async (results: ParseResult<CSVRow>) => {
+        const dataRows = results.data as CSVRow[];
+        const regNumbers: string[] = dataRows.map((row) => row.registerNumber?.trim() || "");
 
         try {
+          const { data: { session } } = await supabase.auth.getSession();
+          
           // Call the server function to update the database
           const res = await fetch("/api/creatives-bulk-update", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token}`,
             },
             body: JSON.stringify({
               registrationNumbers: regNumbers,
@@ -151,7 +166,7 @@ useEffect(() => {
           });
 
           setRegistrations(updatedRegistrations);
-          setToastMessage(data.message);
+          setToastMessage(data.message || `Successfully updated ${data.length} participants to round ${bulkRound}`);
 
           setShowBulkModal(false);
           setBulkFile(null);
@@ -177,14 +192,13 @@ useEffect(() => {
       <div className="absolute inset-0 bg-gradient-to-br from-purple-800/20 via-blue-800/10 to-black z-0 pointer-events-none" />
 
       <div className="relative z-10 p-8">
-        {/* Alexa Logo + Back Link */}
+        {/* Logo + Back */}
         <div className="absolute top-4 left-4 p-2 z-12 flex flex-col items-start gap-2">
           <Link href="/">
-            <img
-              src="/alexa-logo.svg"
-              alt="Alexa Club Logo"
-              className="h-12 w-auto sm:h-10 xs:h-8 mobile:h-6 hover:opacity-80 transition-opacity cursor-pointer"
-            />
+            <img src="/alexa-logo.svg" 
+            alt="Alexa Club Logo" 
+            className="h-12 w-auto sm:h-10 xs:h-8 mobile:h-6 hover:opacity-80 transition-opacity cursor-pointer"
+             />
           </Link>
           <Link
             href="/recruitments25"
@@ -194,8 +208,13 @@ useEffect(() => {
           </Link>
         </div>
 
-        {/* Logout Button */}
-        <div className="absolute top-4 right-4 z-12">
+        {/* User Role & Logout */}
+        <div className="absolute top-4 right-4 z-12 flex items-center gap-3">
+          {!roleLoading && userRole && (
+            <div className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-sm border border-blue-500/30">
+              Role: {userRole}
+            </div>
+          )}
           <button
             onClick={handleLogout}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition-colors cursor-pointer text-sm sm:text-base"
@@ -217,38 +236,36 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Bulk & Export Buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowBulkModal(true)}
-                  className="px-4 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
-                >
-                  Bulk Update
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
-                >
-                  Export
-                </button>
-              </div>
+              {/* Bulk & Export Buttons - Only for lead&core */}
+              {userRole === 'lead&core' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowBulkModal(true)}
+                    className="px-4 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Bulk Update
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Export
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Filters, Mobile Search, Table, etc. */}
             <div className="p-6">
+              {/* Filters (desktop) */}
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">
-                  Participant Registrations
-                </h2>
-
-                {/* Desktop Inputs */}
+                <h2 className="text-2xl font-bold text-white">Participant Registrations</h2>
                 <div className="hidden md:flex gap-4">
                   {/* Year Filter */}
                   <div className="relative">
                     <select
                       value={yearFilter || ""}
                       onChange={(e) => setYearFilter(e.target.value || null)}
-                      className="bg-gray-800/50 border border-pink-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 appearance-none pr-8 cursor-pointer text-sm sm:text-base"
+                      className="bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none pr-8 cursor-pointer text-sm sm:text-base"
                     >
                       <option value="">All Years</option>
                       <option value="1">1st Year</option>
@@ -258,17 +275,12 @@ useEffect(() => {
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg
-                        className="h-5 w-5 text-pink-400"
+                        className="h-5 w-5 text-purple-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
                   </div>
@@ -278,7 +290,7 @@ useEffect(() => {
                     <select
                       value={roundFilter || ""}
                       onChange={(e) => setRoundFilter(e.target.value || null)}
-                      className="bg-gray-800/50 border border-pink-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 appearance-none pr-8 cursor-pointer text-sm sm:text-base"
+                      className="bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none pr-8 cursor-pointer text-sm sm:text-base"
                     >
                       <option value="">All Rounds</option>
                       <option value="1">Round 1</option>
@@ -287,17 +299,12 @@ useEffect(() => {
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg
-                        className="h-5 w-5 text-pink-400"
+                        className="h-5 w-5 text-purple-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
                   </div>
@@ -307,27 +314,22 @@ useEffect(() => {
                     <input
                       type="text"
                       placeholder="Search participants..."
-                      className="bg-gray-800/50 border border-pink-500/30 rounded-lg py-2 px-4 pl-10 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-text text-sm sm:text-base"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      className="bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 pl-10 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-text text-sm sm:text-base"
                     />
                     <svg
-                      className="absolute left-3 top-2.5 h-5 w-5 text-pink-400"
+                      className="absolute left-3 top-2.5 h-5 w-5 text-purple-400"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
                 </div>
 
-                {/* Mobile Buttons */}
+                {/* Mobile Icons */}
                 <div className="flex md:hidden gap-2">
                   <button
                     onClick={() => setShowMobileSearch(!showMobileSearch)}
@@ -340,12 +342,7 @@ useEffect(() => {
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </button>
                   <button
@@ -359,12 +356,7 @@ useEffect(() => {
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-2 1v-6L3 6V4z"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-2 1v-6L3 6V4z" />
                     </svg>
                   </button>
                 </div>
@@ -376,18 +368,19 @@ useEffect(() => {
                   <input
                     type="text"
                     placeholder="Search participants..."
-                    className="w-full bg-gray-800/50 border border-pink-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm sm:text-base"
+                    className="w-full bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
               )}
+
               {showMobileFilter && (
                 <div className="mb-4 flex flex-col gap-4">
                   <select
                     value={yearFilter || ""}
                     onChange={(e) => setYearFilter(e.target.value || null)}
-                    className="w-full bg-gray-800/50 border border-pink-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm sm:text-base"
+                    className="w-full bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
                   >
                     <option value="">All Years</option>
                     <option value="1">1st Year</option>
@@ -398,7 +391,7 @@ useEffect(() => {
                   <select
                     value={roundFilter || ""}
                     onChange={(e) => setRoundFilter(e.target.value || null)}
-                    className="w-full bg-gray-800/50 border border-pink-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm sm:text-base"
+                    className="w-full bg-gray-800/50 border border-purple-500/30 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
                   >
                     <option value="">All Rounds</option>
                     <option value="1">Round 1</option>
@@ -423,7 +416,6 @@ useEffect(() => {
           <div className="bg-gray-900 text-white rounded-lg shadow-lg p-6 w-full max-w-md sm:w-96 relative">
             <h2 className="text-xl font-bold mb-4">Bulk Update Participants</h2>
 
-            {/* Styled File Input */}
             <label
               htmlFor="bulk-file"
               className="mb-4 w-full inline-block bg-pink-700 hover:bg-pink-800 text-white text-center py-2 rounded-lg cursor-pointer text-sm sm:text-base"
@@ -438,7 +430,6 @@ useEffect(() => {
               className="hidden"
             />
 
-            {/* Label above dropdown */}
             <p className="mb-2 font-medium">Move participants to:</p>
             <select
               value={bulkRound}
@@ -470,7 +461,7 @@ useEffect(() => {
 
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm sm:text-base">
+        <div className="fixed bottom-4 right-4 left-4 md:right-4 md:left-auto bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm sm:text-base break-words">
           {toastMessage}
         </div>
       )}

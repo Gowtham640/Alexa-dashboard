@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '../../../lib/supabase-client';
+import { createClient } from '@supabase/supabase-js';
 
 interface Recruitment25Data {
   id: number;
@@ -25,18 +25,42 @@ interface IndividualRegistrationWithRound {
 
 export async function GET(req: NextRequest) {
   try {
+    // Get the authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
+    }
+
+    // Set the session for the request
+    const token = authHeader.replace('Bearer ', '');
     
-    const { data, error } = await supabase
+    // Create a client with the user's token for RLS context
+    const userSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
+    
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const { data, error } = await userSupabase
       .from('recruitment_25')
       .select('*')
       .or('domain1.ilike.%business%,domain2.ilike.%business%');
 
     if (error) {
-      console.error('Supabase error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
-    console.log(`Found ${data?.length || 0} technical registrations`);
 
     if (!data || data.length === 0) {
       return NextResponse.json([]);
@@ -55,7 +79,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(transformedData);
     
   } catch (err) {
-    console.error('Server error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

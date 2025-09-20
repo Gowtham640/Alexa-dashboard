@@ -8,9 +8,16 @@ import IndividualRegistrationTableWithRound from "../../components/IndividualReg
 import { IndividualRegistrationWithRound, Recruitment25Data } from "../../types/types";
 import Papa, { ParseResult } from "papaparse";
 import { useEffect } from "react";
+import { supabase } from "../../../lib/supabase-client";
+import { useUserRole } from "../../../lib/useUserRole";
+
+interface CSVRow {
+  registerNumber?: string;
+}
 
 export default function TechnicalPage() {
   const router = useRouter();
+  const { userRole, loading: roleLoading } = useUserRole();
 
   const [registrations, setRegistrations] = useState<IndividualRegistrationWithRound[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,33 +30,43 @@ export default function TechnicalPage() {
   const [bulkRound, setBulkRound] = useState("2");
   const [toastMessage, setToastMessage] = useState("");
 
- useEffect(() => {
-  const fetchTechnicalRegistrations = async () => {
-    try {
-      const res = await fetch("/api/technical-registrations");
-      const data = await res.json();
+  useEffect(() => {
+    const fetchTechnicalRegistrations = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          router.push("/login");
+          return;
+        }
 
-      if (!res.ok) {
-        console.error("Backend error:", data.error);
+        const res = await fetch("/api/technical-registrations", {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Backend error:", data.error);
+          setToastMessage("Error fetching data from backend");
+          setTimeout(() => setToastMessage(""), 3000);
+          return;
+        }
+
+        setRegistrations(data);
+      } catch (err) {
+        console.error("Error:", err);
         setToastMessage("Error fetching data from backend");
         setTimeout(() => setToastMessage(""), 3000);
-        return;
       }
+    };
 
-      setRegistrations(data);
-    } catch (err) {
-      console.error("Error:", err);
-      setToastMessage("Error fetching data from backend");
-      setTimeout(() => setToastMessage(""), 3000);
-    }
-  };
+    fetchTechnicalRegistrations();
+  }, [router]);
 
-  fetchTechnicalRegistrations();
-}, []);
-
-
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push("/login");
   };
 
@@ -105,23 +122,25 @@ export default function TechnicalPage() {
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-
   const handleBulkUpdate = () => {
     if (!bulkFile) return;
 
     Papa.parse(bulkFile, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results: ParseResult<Record<string, string>>) => {
-        const dataRows = results.data as Record<string, string>[];
+      complete: async (results: ParseResult<CSVRow>) => {
+        const dataRows = results.data as CSVRow[];
         const regNumbers: string[] = dataRows.map((row) => row.registerNumber?.trim() || "");
 
         try {
+          const { data: { session } } = await supabase.auth.getSession();
+          
           // Call the server function to update the database
           const res = await fetch("/api/technical-bulk-update", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token}`,
             },
             body: JSON.stringify({
               registrationNumbers: regNumbers,
@@ -147,7 +166,7 @@ export default function TechnicalPage() {
           });
 
           setRegistrations(updatedRegistrations);
-          setToastMessage(data.message);
+          setToastMessage(data.message || `Successfully updated ${data.length} participants to round ${bulkRound}`);
 
           setShowBulkModal(false);
           setBulkFile(null);
@@ -189,8 +208,13 @@ export default function TechnicalPage() {
           </Link>
         </div>
 
-        {/* Logout */}
-        <div className="absolute top-4 right-4 z-12">
+        {/* User Role & Logout */}
+        <div className="absolute top-4 right-4 z-12 flex items-center gap-3">
+          {!roleLoading && userRole && (
+            <div className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-sm border border-blue-500/30">
+              Role: {userRole}
+            </div>
+          )}
           <button
             onClick={handleLogout}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition-colors cursor-pointer text-sm sm:text-base"
@@ -212,21 +236,23 @@ export default function TechnicalPage() {
                 </div>
               </div>
 
-              {/* Bulk & Export Buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowBulkModal(true)}
-                  className="px-4 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
-                >
-                  Bulk Update
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
-                >
-                  Export
-                </button>
-              </div>
+              {/* Bulk & Export Buttons - Only for lead&core */}
+              {userRole === 'lead&core' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowBulkModal(true)}
+                    className="px-4 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Bulk Update
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Export
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="p-6">
