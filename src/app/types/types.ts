@@ -24,6 +24,10 @@ export type IndividualRegistration = {
 
 export type IndividualRegistrationWithRound = IndividualRegistration & {
   round: number;
+  domain1: string;
+  domain2: string | null;
+  domain1_round: number;
+  domain2_round: number | null;
 };
 
 export type Recruitment25Data = {
@@ -37,7 +41,8 @@ export type Recruitment25Data = {
   linkedin_link: string;
   domain1: string;
   domain2: string | null;
-  round: number;
+  domain1_round: number;
+  domain2_round: number | null;
 };
 
 

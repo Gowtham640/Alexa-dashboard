@@ -47,14 +47,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid round number (1-3) is required' }, { status: 400 });
     }
 
-    // Update the database for participants with matching registration numbers (no domain restriction)
-    const { data, error } = await userSupabase
+    // First, get the current records to determine which domain round to update
+    const { data: currentRecords, error: fetchCurrentError } = await userSupabase
       .from('recruitment_25')
-      .update({ round: round })
+      .select('*')
       .in('registration_number', registrationNumbers);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (fetchCurrentError) {
+      return NextResponse.json({ error: fetchCurrentError.message }, { status: 500 });
+    }
+
+    // Update domain1_round for records where domain1 is creatives
+    const creativesDomain1Records = currentRecords?.filter(record => 
+      record.domain1.toLowerCase().includes('creatives')
+    ) || [];
+
+    if (creativesDomain1Records.length > 0) {
+      const { error: domain1Error } = await userSupabase
+        .from('recruitment_25')
+        .update({ domain1_round: round })
+        .in('registration_number', creativesDomain1Records.map(r => r.registration_number));
+
+      if (domain1Error) {
+        return NextResponse.json({ error: domain1Error.message }, { status: 500 });
+      }
+    }
+
+    // Update domain2_round for records where domain2 is creatives
+    const creativesDomain2Records = currentRecords?.filter(record => 
+      record.domain2 && record.domain2.toLowerCase().includes('creatives')
+    ) || [];
+
+    if (creativesDomain2Records.length > 0) {
+      const { error: domain2Error } = await userSupabase
+        .from('recruitment_25')
+        .update({ domain2_round: round })
+        .in('registration_number', creativesDomain2Records.map(r => r.registration_number));
+
+      if (domain2Error) {
+        return NextResponse.json({ error: domain2Error.message }, { status: 500 });
+      }
     }
 
     // Get the updated records to return

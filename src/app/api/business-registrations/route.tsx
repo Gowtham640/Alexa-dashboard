@@ -8,9 +8,10 @@ interface Recruitment25Data {
   srm_mail: string;
   phone_number: string;
   created_at: string;
-  round: number;
-  domain1?: string;
-  domain2?: string;
+  domain1: string;
+  domain2: string | null;
+  domain1_round: number;
+  domain2_round: number | null;
 }
 
 interface IndividualRegistrationWithRound {
@@ -21,6 +22,10 @@ interface IndividualRegistrationWithRound {
   phone: string;
   registeredAt: string;
   round: number;
+  domain1: string;
+  domain2: string | null;
+  domain1_round: number;
+  domain2_round: number | null;
 }
 
 export async function GET(req: NextRequest) {
@@ -66,15 +71,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
-    const transformedData: IndividualRegistrationWithRound[] = (data as Recruitment25Data[]).map(item => ({
-      id: item.id.toString(),
-      name: item.name,
-      registerNumber: item.registration_number,
-      email: item.srm_mail,
-      phone: item.phone_number,
-      registeredAt: new Date(item.created_at).toLocaleDateString(),
-      round: item.round
-    }));
+    const transformedData: IndividualRegistrationWithRound[] = (data as Recruitment25Data[]).map(item => {
+      // Determine which round to show based on which domain is "business"
+      let displayRound: number;
+      if (item.domain1.toLowerCase().includes('business')) {
+        displayRound = item.domain1_round;
+      } else if (item.domain2 && item.domain2.toLowerCase().includes('business')) {
+        displayRound = item.domain2_round || 1;
+      } else {
+        displayRound = item.domain1_round; // fallback
+      }
+
+      return {
+        id: item.id.toString(),
+        name: item.name,
+        registerNumber: item.registration_number,
+        email: item.srm_mail,
+        phone: item.phone_number,
+        registeredAt: new Date(item.created_at).toLocaleDateString(),
+        round: displayRound,
+        domain1: item.domain1,
+        domain2: item.domain2,
+        domain1_round: item.domain1_round,
+        domain2_round: item.domain2_round
+      };
+    });
 
     return NextResponse.json(transformedData);
     
