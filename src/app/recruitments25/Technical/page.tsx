@@ -8,9 +8,12 @@ import IndividualRegistrationTableWithRound from "../../components/IndividualReg
 import { IndividualRegistrationWithRound, Recruitment25Data } from "../../types/types";
 import Papa, { ParseResult } from "papaparse";
 import { useEffect } from "react";
+import { supabase } from "../../../lib/supabase-client";
+import { useUserRole } from "../../../lib/useUserRole";
 
 export default function TechnicalPage() {
   const router = useRouter();
+  const { userRole, loading: roleLoading } = useUserRole();
 
   const [registrations, setRegistrations] = useState<IndividualRegistrationWithRound[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,34 +25,76 @@ export default function TechnicalPage() {
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkRound, setBulkRound] = useState("2");
   const [toastMessage, setToastMessage] = useState("");
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
- useEffect(() => {
-  const fetchTechnicalRegistrations = async () => {
-    try {
-      const res = await fetch("/api/technical-registrations");
-      const data = await res.json();
+  useEffect(() => {
+    const fetchTechnicalRegistrations = async () => {
+      try {
+        console.log("📊 Technical: Starting data fetch...");
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const sessionInfo = {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          userEmail: session?.user?.email,
+          accessToken: session?.access_token ? "Present" : "Missing",
+          expiresAt: session?.expires_at,
+          tokenLength: session?.access_token?.length || 0
+        };
+        
+        console.log("📊 Technical: Session check:", sessionInfo);
+        setDebugInfo(sessionInfo);
+        
+        if (!session) {
+          console.log("📊 Technical: No session, redirecting to login");
+          router.push("/login");
+          return;
+        }
 
-      if (!res.ok) {
-        console.error("Backend error:", data.error);
+        console.log("📊 Technical: Making API call to /api/technical-registrations");
+        const res = await fetch("/api/technical-registrations", {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        
+        console.log("📊 Technical: API response status:", res.status);
+        const data = await res.json();
+        console.log("📊 Technical: API response data:", data);
+
+        if (!res.ok) {
+          console.error("📊 Technical: Backend error:", data.error);
+          setToastMessage("Error fetching data from backend");
+          setTimeout(() => setToastMessage(""), 3000);
+          return;
+        }
+
+        console.log("📊 Technical: Setting registrations:", data.length, "records");
+        setRegistrations(data);
+        
+        // Test direct Supabase access
+        console.log("📊 Technical: Testing direct Supabase access...");
+        const { count: directCount, error: directError } = await supabase
+          .from('recruitment_25')
+          .select('*', { count: 'exact', head: true })
+          .or('domain1.ilike.%technical%,domain2.ilike.%technical%');
+        
+        console.log("📊 Technical: Direct Supabase test:", {
+          directCount,
+          directError: directError?.message
+        });
+      } catch (err) {
+        console.error("📊 Technical: Error:", err);
         setToastMessage("Error fetching data from backend");
         setTimeout(() => setToastMessage(""), 3000);
-        return;
       }
+    };
 
-      setRegistrations(data);
-    } catch (err) {
-      console.error("Error:", err);
-      setToastMessage("Error fetching data from backend");
-      setTimeout(() => setToastMessage(""), 3000);
-    }
-  };
+    fetchTechnicalRegistrations();
+  }, [router]);
 
-  fetchTechnicalRegistrations();
-}, []);
-
-
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push("/login");
   };
 
@@ -105,7 +150,6 @@ export default function TechnicalPage() {
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-
   const handleBulkUpdate = () => {
     if (!bulkFile) return;
 
@@ -117,11 +161,18 @@ export default function TechnicalPage() {
         const regNumbers: string[] = dataRows.map((row) => row.registerNumber?.trim() || "");
 
         try {
-          // Call the server function to update the database
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (!session) {
+            router.push("/login");
+            return;
+          }
+
           const res = await fetch("/api/technical-bulk-update", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              'Authorization': `Bearer ${session.access_token}`
             },
             body: JSON.stringify({
               registrationNumbers: regNumbers,
@@ -189,8 +240,13 @@ export default function TechnicalPage() {
           </Link>
         </div>
 
-        {/* Logout */}
-        <div className="absolute top-4 right-4 z-12">
+        {/* User Role & Logout */}
+        <div className="absolute top-4 right-4 z-12 flex items-center gap-3">
+          {!roleLoading && userRole && (
+            <div className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-sm border border-blue-500/30">
+              Role: {userRole}
+            </div>
+          )}
           <button
             onClick={handleLogout}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition-colors cursor-pointer text-sm sm:text-base"
@@ -210,23 +266,26 @@ export default function TechnicalPage() {
                     {filteredRegistrations.length} Registrations
                   </span>
                 </div>
+                
               </div>
 
-              {/* Bulk & Export Buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowBulkModal(true)}
-                  className="px-4 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
-                >
-                  Bulk Update
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
-                >
-                  Export
-                </button>
-              </div>
+              {/* Bulk & Export Buttons - Only for lead&core */}
+              {userRole === 'lead&core' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowBulkModal(true)}
+                    className="px-4 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Bulk Update
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Export
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="p-6">

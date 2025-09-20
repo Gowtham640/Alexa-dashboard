@@ -9,6 +9,8 @@ import { IndividualRegistrationWithRound, Recruitment25Data } from "../../types/
 import Papa, { ParseResult } from "papaparse";
 import { supabase } from "../../../lib/supabase-client";
 import { useEffect } from "react";
+import { getAuthHeaders, checkAuthAndRedirect } from "../../../lib/auth-helpers";
+import { useUserRole } from "../../../lib/useUserRole";
 
 type BulkCSVRow = {
   registerNumber?: string;
@@ -16,6 +18,7 @@ type BulkCSVRow = {
 
 export default function EventsPage() {
   const router = useRouter();
+  const { userRole, loading: roleLoading } = useUserRole();
 
   const [registrations, setRegistrations] = useState<IndividualRegistrationWithRound[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -28,34 +31,36 @@ export default function EventsPage() {
   const [bulkRound, setBulkRound] = useState("2");
   const [toastMessage, setToastMessage] = useState("");
 
+  useEffect(() => {
+    const fetchEventsRegistrations = async () => {
+      try {
+        const isAuthenticated = await checkAuthAndRedirect(router);
+        if (!isAuthenticated) return;
 
-useEffect(() => {
-  const fetchEventsRegistrations = async () => {
-    try {
-      const res = await fetch("/api/events-registrations");
-      const data = await res.json();
+        const headers = await getAuthHeaders();
+        const res = await fetch("/api/events-registrations", { headers });
+        const data = await res.json();
 
-      if (!res.ok) {
-        console.error("Backend error:", data.error);
+        if (!res.ok) {
+          console.error("Backend error:", data.error);
+          setToastMessage("Error fetching data from backend");
+          setTimeout(() => setToastMessage(""), 3000);
+          return;
+        }
+
+        setRegistrations(data);
+      } catch (err) {
+        console.error("Error:", err);
         setToastMessage("Error fetching data from backend");
         setTimeout(() => setToastMessage(""), 3000);
-        return;
       }
+    };
 
-      setRegistrations(data);
-    } catch (err) {
-      console.error("Error:", err);
-      setToastMessage("Error fetching data from backend");
-      setTimeout(() => setToastMessage(""), 3000);
-    }
-  };
+    fetchEventsRegistrations();
+  }, [router]);
 
-  fetchEventsRegistrations();
-}, []);
-
-
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push("/login");
   };
 
@@ -111,7 +116,6 @@ useEffect(() => {
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-  
   const handleBulkUpdate = () => {
     if (!bulkFile) return;
 
@@ -124,12 +128,10 @@ useEffect(() => {
         );
 
         try {
-          // Call the server function to update the database
+          const headers = await getAuthHeaders();
           const res = await fetch("/api/events-bulk-update", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers,
             body: JSON.stringify({
               registrationNumbers: regNumbers,
               round: Number(bulkRound)
@@ -219,21 +221,23 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Bulk & Export Buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowBulkModal(true)}
-                  className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
-                >
-                  Bulk Update
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
-                >
-                  Export
-                </button>
-              </div>
+              {/* Bulk & Export Buttons - Only for lead&core */}
+              {userRole === 'lead&core' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowBulkModal(true)}
+                    className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Bulk Update
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Export
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Filters, Desktop + Mobile Search */}

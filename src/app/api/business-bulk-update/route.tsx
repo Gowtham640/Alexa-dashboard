@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '../../../lib/supabase-client';
+import { createClient } from '@supabase/supabase-js';
+import { supabaseServer } from '../../../lib/supabase-server';
 
 interface BulkUpdateRequest {
   registrationNumbers: string[];
@@ -8,6 +9,37 @@ interface BulkUpdateRequest {
 
 export async function POST(req: NextRequest) {
   try {
+    // Use server-side Supabase client with service role key
+    const supabase = supabaseServer;
+
+    // Get the authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
+    }
+
+    // Set the session for the request
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create a client with the user's token for RLS context
+    const userSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
+    
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
     const body: BulkUpdateRequest = await req.json();
     const { registrationNumbers, round } = body;
 
@@ -20,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update the database for business domain participants
-    const { data, error } = await supabase
+    const { data, error } = await userSupabase
       .from('recruitment_25')
       .update({ round: round })
       .in('registration_number', registrationNumbers)
@@ -32,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the updated records to return
-    const { data: updatedData, error: fetchError } = await supabase
+    const { data: updatedData, error: fetchError } = await userSupabase
       .from('recruitment_25')
       .select('*')
       .in('registration_number', registrationNumbers)
