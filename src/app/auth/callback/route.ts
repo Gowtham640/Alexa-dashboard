@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       
       if (error) {
         console.error('Auth callback error:', error);
-        return NextResponse.redirect(new URL('/login?error=auth_callback_error', requestUrl.origin));
+        return NextResponse.redirect(new URL('/login?error=auth_callback_error', 'https://alexa-dashboard1.vercel.app'));
       }
 
       if (data.user) {
@@ -44,15 +44,15 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Always redirect to login page after successful confirmation
-      return NextResponse.redirect(new URL('/login?confirmed=true', requestUrl.origin));
+      // Always redirect to production login page after successful confirmation
+      return NextResponse.redirect(new URL('/login?confirmed=true', 'https://alexa-dashboard1.vercel.app'));
       
     } catch (error) {
       console.error('Unexpected error in auth callback:', error);
-      return NextResponse.redirect(new URL('/login?error=unexpected_error', requestUrl.origin));
+      return NextResponse.redirect(new URL('/login?error=unexpected_error', 'https://alexa-dashboard1.vercel.app'));
     }
   }
 
-  // If no code, redirect to login
-  return NextResponse.redirect(new URL('/login', requestUrl.origin));
+  // If no code, redirect to production login
+  return NextResponse.redirect(new URL('/login', 'https://alexa-dashboard1.vercel.app'));
 }
