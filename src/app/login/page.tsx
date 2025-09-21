@@ -27,7 +27,7 @@ export default function LoginPage() {
 
   const handleAuth = async () => {
     // Use production URL for email confirmation redirect
-    const redirectUrl = 'https://alexa-dashboard1.vercel.app/auth/callback';
+    const redirectUrl = 'https://alexa-dashboard1.vercel.app/login';
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({
         email,
