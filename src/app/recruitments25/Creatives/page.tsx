@@ -15,6 +15,17 @@ interface CSVRow {
   registerNumber?: string;
 }
 
+interface DatabaseRecord {
+  registration_number: string;
+  domain1?: string;
+  domain2?: string;
+  domain1_round?: number;
+  domain2_round?: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
 export default function CreativesPage() {
   const router = useRouter();
   const { userRole, loading: roleLoading } = useUserRole();
@@ -165,6 +176,10 @@ export default function CreativesPage() {
             return;
           }
 
+          // Check for missing registration numbers
+          const updatedRegNumbers = data.map((record: DatabaseRecord) => record.registration_number);
+          const missingRegNumbers = regNumbers.filter(regNum => !updatedRegNumbers.includes(regNum));
+          
           // Update local state to reflect the changes
           const updatedRegistrations = registrations.map((p) => {
             if (regNumbers.includes(p.registerNumber)) {
@@ -174,7 +189,18 @@ export default function CreativesPage() {
           });
 
           setRegistrations(updatedRegistrations);
-          setToastMessage(data.message || `Successfully updated ${data.length} participants to round ${bulkRound}`);
+          
+          // Show success message with missing registration numbers if any
+          let successMessage = data.message || `Successfully updated ${data.length} participants to round ${bulkRound}`;
+          if (missingRegNumbers.length > 0) {
+            const missingNumbers = missingRegNumbers.map(num => `registration number: ${num}`).join(', ');
+            successMessage += `. Not found: ${missingNumbers}`;
+            setToastMessage(successMessage);
+            setTimeout(() => setToastMessage(""), 10000); // 10 seconds for missing reg numbers
+          } else {
+            setToastMessage(successMessage);
+            setTimeout(() => setToastMessage(""), 5000); // 5 seconds for normal success
+          }
 
           setShowBulkModal(false);
           setBulkFile(null);
