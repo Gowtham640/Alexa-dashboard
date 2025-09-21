@@ -36,6 +36,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
+    const currentTime = new Date().toISOString();
+    const modifierEmail = user.email || '';
+
     const body: BulkUpdateRequest = await req.json();
     const { registrationNumbers, round } = body;
 
@@ -65,7 +68,11 @@ export async function POST(req: NextRequest) {
     if (businessDomain1Records.length > 0) {
       const { error: domain1Error } = await userSupabase
         .from('recruitment_25')
-        .update({ domain1_round: round })
+        .update({ 
+          domain1_round: round,
+          modified_at: currentTime,
+          modified_by1: modifierEmail
+        })
         .in('registration_number', businessDomain1Records.map(r => r.registration_number));
 
       if (domain1Error) {
@@ -81,7 +88,11 @@ export async function POST(req: NextRequest) {
     if (businessDomain2Records.length > 0) {
       const { error: domain2Error } = await userSupabase
         .from('recruitment_25')
-        .update({ domain2_round: round })
+        .update({ 
+          domain2_round: round,
+          modified_at: currentTime,
+          modified_by2: modifierEmail
+        })
         .in('registration_number', businessDomain2Records.map(r => r.registration_number));
 
       if (domain2Error) {

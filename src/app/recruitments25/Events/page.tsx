@@ -16,14 +16,21 @@ interface CSVRow {
 }
 
 interface DatabaseRecord {
+  id?: number;
+  created_at?: string;
+  name: string;
   registration_number: string;
-  domain1?: string;
+  phone_number: string;
+  srm_mail: string;
+  github_link: string;
+  linkedin_link: string;
+  domain1: string;
   domain2?: string;
-  domain1_round?: number;
+  domain1_round: number;
   domain2_round?: number;
-  name?: string;
-  email?: string;
-  phone?: string;
+  modified_at?: string;
+  modified_by1?: string;
+  modified_by2?: string;
 }
 
 export default function EventsPage() {
