@@ -130,6 +130,14 @@ export default function CreativesPage() {
       skipEmptyLines: true,
       complete: async (results: ParseResult<CSVRow>) => {
         const dataRows = results.data as CSVRow[];
+        
+        // Check if the CSV has the correct column name
+        if (dataRows.length > 0 && !dataRows[0].hasOwnProperty('registerNumber')) {
+          setToastMessage("CSV file must have a column named 'registerNumber'. Please check and try again.");
+          setTimeout(() => setToastMessage(""), 5000);
+          return;
+        }
+        
         const regNumbers: string[] = dataRows.map((row) => row.registerNumber?.trim() || "");
 
         try {
@@ -241,6 +249,18 @@ export default function CreativesPage() {
                   >
                     Bulk Update
                   </button>
+                  <button
+                    onClick={handleExport}
+                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
+                  >
+                    Export
+                  </button>
+                </div>
+              )}
+              
+              {/* Export Button - Only for executive */}
+              {userRole === 'executive' && (
+                <div className="flex gap-2">
                   <button
                     onClick={handleExport}
                     className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg cursor-pointer text-sm sm:text-base"
