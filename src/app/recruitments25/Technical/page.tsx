@@ -17,7 +17,13 @@ interface CSVRow {
 
 interface DatabaseRecord {
   registration_number: string;
-  [key: string]: any;
+  domain1?: string;
+  domain2?: string;
+  domain1_round?: number;
+  domain2_round?: number;
+  name?: string;
+  email?: string;
+  phone?: string;
 }
 
 export default function TechnicalPage() {
