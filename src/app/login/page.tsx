@@ -1,22 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabase-client";
 import { toast } from "react-hot-toast";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  //const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [role, setRole] = useState("other");
 
+  useEffect(() => {
+    // Check for confirmation success or error
+    const confirmed = searchParams.get('confirmed');
+    const error = searchParams.get('error');
+    
+    if (confirmed === 'true') {
+      toast.success("Email confirmed successfully! You can now sign in.");
+    } else if (error) {
+      toast.error("Email confirmation failed. Please try again.");
+    }
+  }, [searchParams]);
+
   const handleAuth = async () => {
-    {/*const redirectUrl =
-  process.env.NODE_ENV === "production"
-    ? process.env.NEXT_PUBLIC_SUPABASE_REDIRECT_URL_PROD
-    : process.env.NEXT_PUBLIC_SUPABASE_REDIRECT_URL_DEV;
+    // Use auth callback URL for email confirmation
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({
         email,
@@ -37,7 +48,7 @@ export default function LoginPage() {
       setPassword("");
       setIsSignUp(false);
       return;
-    }*/}
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -115,8 +126,7 @@ export default function LoginPage() {
       <div className="flex flex-col min-h-screen items-center justify-center px-4 relative z-10">
         {/* Page Heading */}
         <h1 className="text-5xl sm:text-4xl xs:text-3xl font-extrabold text-white mb-12 mt-4 text-center">
-          Login to ADS Dashboard
-          {/*{isSignUp ? "Sign Up to ADS Dashboard" : "Login to ADS Dashboard"}*/}
+          {isSignUp ? "Sign Up to ADS Dashboard" : "Login to ADS Dashboard"}
         </h1>
 
         {/* Login Box */}
@@ -165,27 +175,24 @@ export default function LoginPage() {
              <button
               onClick={handleAuth}
               className="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 hover:scale-105 active:scale-95"
-              aria-label="Sign in"
+              aria-label={isSignUp ? "Sign up" : "Sign in"}
             >
-              Sign in
-              {/*{isSignUp ? "Sign Up" : "Sign In"}*/}
+              {isSignUp ? "Sign Up" : "Sign In"}
             </button>
 
             {/* Forgot Password + Sign Up */}
             <div className="text-center mt-2 space-y-2">
               <a
                 href="#"
-                /* onClick={(e) => {
+                onClick={(e) => {
                   e.preventDefault();
                   setIsSignUp(!isSignUp);
-                }} */
+                }}
                 className="block text-sm text-purple-400 hover:text-purple-500 transition-colors"
               >
-                {/*
                 {isSignUp
                   ? "Already have an account? Login"
-                  : "Don’t have an account? Sign up"}*/}
-                  {/*Login to access the dashboard*/}
+                  : "Don't have an account? Sign up"}
               </a>
             </div>
           </div>
