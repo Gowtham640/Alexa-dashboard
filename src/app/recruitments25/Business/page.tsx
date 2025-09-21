@@ -165,6 +165,10 @@ export default function BusinessPage() {
             return;
           }
 
+          // Check for missing registration numbers
+          const updatedRegNumbers = data.map((record: any) => record.registration_number);
+          const missingRegNumbers = regNumbers.filter(regNum => !updatedRegNumbers.includes(regNum));
+          
           // Update local state to reflect the changes
           const updatedRegistrations = registrations.map((p) => {
             if (regNumbers.includes(p.registerNumber)) {
@@ -174,7 +178,18 @@ export default function BusinessPage() {
           });
 
           setRegistrations(updatedRegistrations);
-          setToastMessage(data.message || `Successfully updated ${data.length} participants to round ${bulkRound}`);
+          
+          // Show success message with missing registration numbers if any
+          let successMessage = data.message || `Successfully updated ${data.length} participants to round ${bulkRound}`;
+          if (missingRegNumbers.length > 0) {
+            const missingNumbers = missingRegNumbers.map(num => `registration number: ${num}`).join(', ');
+            successMessage += `. Not found: ${missingNumbers}`;
+            setToastMessage(successMessage);
+            setTimeout(() => setToastMessage(""), 10000); // 10 seconds for missing reg numbers
+          } else {
+            setToastMessage(successMessage);
+            setTimeout(() => setToastMessage(""), 5000); // 5 seconds for normal success
+          }
 
           setShowBulkModal(false);
           setBulkFile(null);
