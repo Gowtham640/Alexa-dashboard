@@ -15,6 +15,11 @@ interface CSVRow {
   registerNumber?: string;
 }
 
+interface DatabaseRecord {
+  registration_number: string;
+  [key: string]: any;
+}
+
 export default function TechnicalPage() {
   const router = useRouter();
   const { userRole, loading: roleLoading } = useUserRole();
@@ -166,7 +171,7 @@ export default function TechnicalPage() {
           }
 
           // Check for missing registration numbers
-          const updatedRegNumbers = data.map((record: any) => record.registration_number);
+          const updatedRegNumbers = data.map((record: DatabaseRecord) => record.registration_number);
           const missingRegNumbers = regNumbers.filter(regNum => !updatedRegNumbers.includes(regNum));
           
           // Update local state to reflect the changes
