@@ -466,7 +466,7 @@ export default function BusinessPage() {
             <h2 className="text-xl font-bold mb-4">Bulk Update Participants</h2>
 
             <p className="text-sm text-gray-300 mb-4">
-              <strong>Note:</strong> Your CSV file must have a column named 'registerNumber' containing the registration numbers.
+              <strong>Note:</strong> Your CSV file must have a column named &apos;registerNumber&apos; containing the registration numbers.
             </p>
 
             <label

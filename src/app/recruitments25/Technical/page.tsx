@@ -466,7 +466,7 @@ export default function TechnicalPage() {
             <h2 className="text-xl font-bold mb-4">Bulk Update Participants</h2>
 
             <p className="text-sm text-gray-300 mb-4">
-              <strong>Note:</strong> In your CSV file, the column heading must be 'registerNumber'.
+              <strong>Note:</strong> In your CSV file, the column heading must be &apos;registerNumber&apos;.
             </p>
 
             <label
