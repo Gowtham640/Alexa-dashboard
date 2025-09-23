@@ -107,7 +107,7 @@ export default function Recruitments2025() {
             alt="Alexa Club Logo"
             width={48}
             height={48}
-            className="h-12 w-auto sm:h-10 xs:h-8 mobile:h-6 hover:opacity-80 transition-opacity cursor-pointer"
+            className="h-8 w-auto sm:h-10 xs:h-8 mobile:h-6 hover:opacity-80 transition-opacity cursor-pointer"
           />
         </Link>
         <Link
