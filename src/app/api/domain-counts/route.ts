@@ -32,7 +32,6 @@ export async function GET(req: NextRequest) {
     const domainCounts: { [key: string]: number } = {};
 
     for (const domain of domains) {
-      // Count registrations where domain1 OR domain2 matches the current domain
       const { count, error: countError } = await userSupabase
         .from('recruitment_25')
         .select('*', { count: 'exact' })
