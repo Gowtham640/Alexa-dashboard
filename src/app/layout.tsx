@@ -7,8 +7,8 @@ import { Toaster } from "react-hot-toast";
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'AlexaVerse 2.0',
-  description: 'Dashboard for AlexaVerse 2.0 events',
+  title: 'Alexa Dashboard',
+  description: 'Dashboard for Alexa Developers SRM',
 };
 
 export default function RootLayout({
