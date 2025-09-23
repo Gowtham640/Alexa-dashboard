@@ -33,40 +33,60 @@ const recruitments = [
 export default function Recruitments2025() {
   const { userRole, loading: roleLoading } = useUserRole();
   const [totalRegistrations, setTotalRegistrations] = useState<number | null>(null);
+  const [domainCounts, setDomainCounts] = useState<{ [key: string]: number }>({});
   const [loading, setLoading] = useState(true);
+  const [domainLoading, setDomainLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTotalRegistrations = async () => {
+    const fetchData = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
           setLoading(false);
+          setDomainLoading(false);
           return;
         }
 
-        const res = await fetch("/api/total-registrations", {
+        const totalRes = await fetch("/api/total-registrations", {
           headers: {
             'Authorization': `Bearer ${session.access_token}`
           }
         });
-        const data = await res.json();
+        const totalData = await totalRes.json();
 
-        if (!res.ok) {
-          console.error("Error fetching total registrations:", data.error);
+        if (!totalRes.ok) {
+          console.error("Error fetching total registrations:", totalData.error);
           setTotalRegistrations(0);
         } else {
-          setTotalRegistrations(data.totalRegistrations);
+          setTotalRegistrations(totalData.totalRegistrations);
+        }
+
+        // Fetch domain counts
+        const domainRes = await fetch("/api/domain-counts", {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        const domainData = await domainRes.json();
+
+        if (!domainRes.ok) {
+          console.error("Error fetching domain counts:", domainData.error);
+          setDomainCounts({});
+        } else {
+          setDomainCounts(domainData.domainCounts);
         }
       } catch (err) {
         console.error("Error:", err);
         setTotalRegistrations(0);
+        setDomainCounts({});
       } finally {
         setLoading(false);
+        setDomainLoading(false);
       }
     };
 
-    fetchTotalRegistrations();
+    fetchData();
   }, []);
   
   const handleLogout = () => {
@@ -121,6 +141,16 @@ export default function Recruitments2025() {
               <div className="bg-white/10 backdrop-blur-md rounded-xl shadow-md p-6 hover:shadow-lg transition-all cursor-pointer h-full border-l-4 border-green-500 border border-white/20">
                 <h2 className="text-2xl font-bold text-white">{domain.name}</h2>
                 <p className="text-white/80 mt-2">{domain.description}</p>
+                <div className="mt-3">
+                  {domainLoading ? (
+                    <span className="text-blue-400 text-sm">Loading count...</span>
+                  ) : (
+                    <span className="text-blue-400 font-bold text-lg">
+                      {domainCounts[domain.id.toLowerCase()]?.toLocaleString() || 0}
+                      <span className="text-white mt-2 text-sm font-medium"> registrations</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
           ))}
