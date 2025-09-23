@@ -465,6 +465,10 @@ export default function EventsPage() {
           <div className="bg-gray-900 text-white rounded-lg shadow-lg p-6 w-full max-w-md sm:w-96 relative">
             <h2 className="text-xl font-bold mb-4">Bulk Update Participants</h2>
 
+            <p className="text-sm text-gray-300 mb-4">
+              <strong>Note:</strong> Your CSV file must have a column named &apos;registerNumber&apos; containing the registration numbers.
+            </p>
+
             <label
               htmlFor="bulk-file"
               className="mb-4 w-full inline-block bg-pink-700 hover:bg-pink-800 text-white text-center py-2 rounded-lg cursor-pointer text-sm sm:text-base"
