@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useUserRole } from "../../lib/useUserRole";
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase-client";
 
 const recruitments = [
   {
@@ -25,10 +27,47 @@ const recruitments = [
     name: "Events",
     description: "Organizing, planning and execution",
   },
+  
 ];
 
 export default function Recruitments2025() {
   const { userRole, loading: roleLoading } = useUserRole();
+  const [totalRegistrations, setTotalRegistrations] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTotalRegistrations = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch("/api/total-registrations", {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Error fetching total registrations:", data.error);
+          setTotalRegistrations(0);
+        } else {
+          setTotalRegistrations(data.totalRegistrations);
+        }
+      } catch (err) {
+        console.error("Error:", err);
+        setTotalRegistrations(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTotalRegistrations();
+  }, []);
   
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
@@ -85,6 +124,20 @@ export default function Recruitments2025() {
               </div>
             </Link>
           ))}
+          
+          {/* Total Registrations Box */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl shadow-md p-6 hover:shadow-lg transition-all h-full border-l-4 border-blue-500 border border-white/20 order-first md:order-none">
+            <h2 className="text-2xl font-bold text-white">Total Unique Registrations</h2>
+            <p className="text-white/80 mt-2">
+              {loading ? (
+                <span className="text-blue-400">Loading...</span>
+              ) : totalRegistrations !== null ? (
+                <span className="text-green-400 font-bold text-4xl">{totalRegistrations.toLocaleString()}</span>
+              ) : (
+                <span className="text-red-400">Unable to load</span>
+              )}
+            </p>
+          </div>
         </div>
       </div>
 
