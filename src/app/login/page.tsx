@@ -10,7 +10,9 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+  // Disable sign up functionality
+  // const [isSignUp, setIsSignUp] = useState(false);
+  const isSignUp = false;
   const [role, setRole] = useState("other");
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export default function LoginPage() {
   const handleAuth = async () => {
     // Use production URL for email confirmation redirect
     const redirectUrl = 'https://alexa-dashboard1.vercel.app/login';
+    /* Commented out sign up functionality
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({
         email,
@@ -49,6 +52,7 @@ export default function LoginPage() {
       setIsSignUp(false);
       return;
     }
+    */
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -125,8 +129,13 @@ export default function LoginPage() {
 
       <div className="flex flex-col min-h-screen items-center justify-center px-4 relative z-10">
         {/* Page Heading */}
+        {/* Disabled sign up functionality
         <h1 className="text-5xl sm:text-4xl xs:text-3xl font-extrabold text-white mb-12 mt-4 text-center">
           {isSignUp ? "Sign Up to ADS Dashboard" : "Login to ADS Dashboard"}
+        </h1>
+        */}
+        <h1 className="text-5xl sm:text-4xl xs:text-3xl font-extrabold text-white mb-12 mt-4 text-center">
+          Login to ADS Dashboard
         </h1>
 
         {/* Login Box */}
@@ -172,15 +181,24 @@ export default function LoginPage() {
             </div>
 
              {/* Auth Button */}
-             <button
+            {/* Disabled sign up functionality
+            <button
               onClick={handleAuth}
               className="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 hover:scale-105 active:scale-95"
               aria-label={isSignUp ? "Sign up" : "Sign in"}
             >
               {isSignUp ? "Sign Up" : "Sign In"}
             </button>
+            */}
+             <button
+              onClick={handleAuth}
+              className="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 hover:scale-105 active:scale-95"
+              aria-label="Sign in"
+            >
+              Sign In
+            </button>
 
-            {/* Forgot Password + Sign Up */}
+            {/* Forgot Password + Sign Up - Commented out sign up functionality
             <div className="text-center mt-2 space-y-2">
               <a
                 href="#"
@@ -195,6 +213,7 @@ export default function LoginPage() {
                   : "Don't have an account? Sign up"}
               </a>
             </div>
+            */}
           </div>
         </div>
       </div>
