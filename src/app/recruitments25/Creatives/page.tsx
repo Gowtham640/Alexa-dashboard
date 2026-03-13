@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import IndividualRegistrationTableWithRound from "../../components/IndividualRegistrationTableWithRound";
@@ -267,9 +266,7 @@ export default function CreativesPage() {
               <div>
                 <h1 className="text-3xl font-bold">Creatives Domain</h1>
                 <div className="flex flex-wrap gap-4 mt-2">
-                  <span className="text-sm sm:text-base">
-                    {filteredRegistrations.length} Registrations
-                  </span>
+                  <span className="text-sm sm:text-base">{filteredRegistrations.length} Registrations</span>
                 </div>
               </div>
 
@@ -381,7 +378,7 @@ export default function CreativesPage() {
                 {/* Mobile Icons */}
                 <div className="flex md:hidden gap-2">
                   <button
-                    onClick={() => setShowMobileSearch(!showMobileSearch)}
+                    onClick={() => setShowMobileSearch((prev) => !prev)}
                     className="p-2 bg-gray-800/50 rounded-lg text-white hover:bg-gray-700"
                     aria-label="Search"
                   >
@@ -395,7 +392,7 @@ export default function CreativesPage() {
                     </svg>
                   </button>
                   <button
-                    onClick={() => setShowMobileFilter(!showMobileFilter)}
+                    onClick={() => setShowMobileFilter((prev) => !prev)}
                     className="p-2 bg-gray-800/50 rounded-lg text-white hover:bg-gray-700"
                     aria-label="Filter"
                   >
@@ -411,7 +408,7 @@ export default function CreativesPage() {
                 </div>
               </div>
 
-              {/* Mobile Inputs */}
+              {/* Mobile Filters */}
               {showMobileSearch && (
                 <div className="mb-4">
                   <input
@@ -460,7 +457,7 @@ export default function CreativesPage() {
       </div>
 
       {/* Bulk Modal */}
-      {showBulkModal && (
+      {showBulkModal && (userRole === "Lead&Core") && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-gray-900 text-white rounded-lg shadow-lg p-6 w-full max-w-md sm:w-96 relative">
             <h2 className="text-xl font-bold mb-4">Bulk Update Participants</h2>

@@ -45,7 +45,6 @@ export type Recruitment25Data = {
   domain2_round: number | null;
 };
 
-
 export type Event = {
   id: string;
   name: string;
@@ -53,4 +52,31 @@ export type Event = {
   date: string;
   location: string;
   isTeamEvent: boolean;
+};
+
+// ---------------- RBAC ----------------
+
+export type UserRole = "lead&core" | "executive";
+
+export type RolePermissions = {
+  canBulkUpdate: boolean;
+  canExport: boolean;
+  canView: boolean;
+  canFilter: boolean;
+  canSearch: boolean;
+};
+
+// ---------------- Hacktrax-v2 ----------------
+
+export type HacktraxMember = {
+  name: string;
+  email_id: string;
+  phone_number: string;
+  registration_number: string;
+};
+
+export type HacktraxTeam = {
+  team_name: string;
+  members: HacktraxMember[];
+  transaction_id: string;
 };
