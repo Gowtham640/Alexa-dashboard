@@ -11,8 +11,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   // Disable sign up functionality
-  // const [isSignUp, setIsSignUp] = useState(false);
-  const isSignUp = false;
+  const [isSignUp, setIsSignUp] = useState(false);
   const [role, setRole] = useState("other");
 
   useEffect(() => {
@@ -30,7 +29,7 @@ export default function LoginPage() {
   const handleAuth = async () => {
     // Use production URL for email confirmation redirect
     const redirectUrl = 'https://alexa-dashboard1.vercel.app/login';
-    /* Commented out sign up functionality
+    
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({
         email,
@@ -52,7 +51,7 @@ export default function LoginPage() {
       setIsSignUp(false);
       return;
     }
-    */
+    
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -129,14 +128,14 @@ export default function LoginPage() {
 
       <div className="flex flex-col min-h-screen items-center justify-center px-4 relative z-10">
         {/* Page Heading */}
-        {/* Disabled sign up functionality
+        { 
         <h1 className="text-5xl sm:text-4xl xs:text-3xl font-extrabold text-white mb-12 mt-4 text-center">
           {isSignUp ? "Sign Up to ADS Dashboard" : "Login to ADS Dashboard"}
         </h1>
-        */}
-        <h1 className="text-5xl sm:text-4xl xs:text-3xl font-extrabold text-white mb-12 mt-4 text-center">
+        }
+        {/*<h1 className="text-5xl sm:text-4xl xs:text-3xl font-extrabold text-white mb-12 mt-4 text-center">
           Login to ADS Dashboard
-        </h1>
+        </h1>*/}
 
         {/* Login Box */}
         <div className="relative bg-white/10 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/20 overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)]">
@@ -181,7 +180,7 @@ export default function LoginPage() {
             </div>
 
              {/* Auth Button */}
-            {/* Disabled sign up functionality
+            {
             <button
               onClick={handleAuth}
               className="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 hover:scale-105 active:scale-95"
@@ -189,16 +188,16 @@ export default function LoginPage() {
             >
               {isSignUp ? "Sign Up" : "Sign In"}
             </button>
-            */}
-             <button
+            }
+             {/*<button
               onClick={handleAuth}
               className="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 hover:scale-105 active:scale-95"
               aria-label="Sign in"
             >
               Sign In
-            </button>
+            </button>*/}
 
-            {/* Forgot Password + Sign Up - Commented out sign up functionality
+            {
             <div className="text-center mt-2 space-y-2">
               <a
                 href="#"
@@ -213,7 +212,7 @@ export default function LoginPage() {
                   : "Don't have an account? Sign up"}
               </a>
             </div>
-            */}
+            }
           </div>
         </div>
       </div>
