@@ -29,6 +29,15 @@ const recruitments = [
   },
 ];
 
+const previousYearRegistrations = 1128;
+
+const previousYearDomainRegistrations = {
+  technical: 690,
+  creatives: 488,
+  events: 603,
+  business: 426,
+};
+
 export default function Recruitments2026() {
   const { userRole, loading: roleLoading } = useUserRole();
   const [totalRegistrations, setTotalRegistrations] = useState<number | null>(
@@ -94,7 +103,7 @@ export default function Recruitments2026() {
     fetchData();
   }, []);
 
-    const handleLogout = async () => {
+  const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("Error signing out:", error.message);
@@ -148,22 +157,42 @@ export default function Recruitments2026() {
             <Link key={domain.id} href={`/recruitments26/${domain.id}`}>
               <div className="bg-white/10 backdrop-blur-md rounded-xl shadow-md p-6 hover:shadow-lg transition-all cursor-pointer h-full border-l-4 border-green-500 border border-white/20">
                 <h2 className="text-2xl font-bold text-white">{domain.name}</h2>
+
                 <p className="text-white/80 mt-2">{domain.description}</p>
+
                 <div className="mt-3">
                   {domainLoading ? (
                     <span className="text-blue-400 text-sm">
                       Loading count...
                     </span>
                   ) : (
-                    <span className="text-blue-400 font-bold text-lg">
-                      {domainCounts[
-                        domain.id.toLowerCase()
-                      ]?.toLocaleString() || 0}
-                      <span className="text-white mt-2 text-sm font-medium">
-                        {" "}
-                        registrations
+                    <>
+                      <span className="text-blue-400 font-bold text-lg">
+                        {domainCounts[
+                          domain.id.toLowerCase()
+                        ]?.toLocaleString() || 0}
+                        <span className="text-white mt-2 text-sm font-medium">
+                          {" "}
+                          registrations
+                        </span>
                       </span>
-                    </span>
+
+                      <div className="mt-2 pt-2 border-t border-white/10">
+                        <span className="text-white/60 text-sm font-medium">
+                          2025
+                        </span>
+
+                        <div className="text-gray-400 font-bold text-lg">
+                          {previousYearDomainRegistrations[
+                            domain.id.toLowerCase() as keyof typeof previousYearDomainRegistrations
+                          ].toLocaleString()}
+                          <span className="text-white/60 text-sm font-medium">
+                            {" "}
+                            registrations
+                          </span>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -175,33 +204,50 @@ export default function Recruitments2026() {
             <h2 className="text-2xl font-bold text-white">
               Total Unique Registrations
             </h2>
-            <p className="text-white/80 mt-2">
-              {loading ? (
-                <span className="text-blue-400">Loading...</span>
-              ) : totalRegistrations !== null ? (
-                <span className="text-green-400 font-bold text-4xl">
-                  {totalRegistrations.toLocaleString()}
-                </span>
-              ) : (
-                <span className="text-red-400">Unable to load</span>
-              )}
-            </p>
+
+            <div className="mt-3">
+              {/* 2026 */}
+              <div>
+                <span className="text-white text-sm font-medium">2026</span>
+
+                <div>
+                  {loading ? (
+                    <span className="text-blue-400">Loading...</span>
+                  ) : totalRegistrations !== null ? (
+                    <span className="text-green-400 font-bold text-4xl">
+                      {totalRegistrations.toLocaleString()}
+                    </span>
+                  ) : (
+                    <span className="text-red-400">Unable to load</span>
+                  )}
+                </div>
+              </div>
+
+              {/* 2025 */}
+              <div className="mt-3 pt-3 border-t border-white/10">
+                <span className="text-white/60 text-sm font-medium">2025</span>
+
+                <div className="text-gray-400 font-bold text-2xl">
+                  {previousYearRegistrations.toLocaleString()}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Mobile specific scaling */}
-      <style jsx>{`
-        @media (max-width: 480px) {
-          div.absolute.top-4.left-4 img {
-            height: 32px;
+        {/* Mobile specific scaling */}
+        <style jsx>{`
+          @media (max-width: 480px) {
+            div.absolute.top-4.left-4 img {
+              height: 32px;
+            }
+            div.absolute.top-4.right-4 button {
+              padding: 0.5rem;
+              font-size: 0.8rem;
+            }
           }
-          div.absolute.top-4.right-4 button {
-            padding: 0.5rem;
-            font-size: 0.8rem;
-          }
-        }
-      `}</style>
+        `}</style>
+      </div>
     </div>
   );
 }
